@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>GSF快递计算器</title>
+    <style>
+        body {
+            font-family: "SimSun", "Times New Roman", serif; /* 中文宋体，英文 Times New Roman */
+            line-height: 1.5;
+            padding: 20px;
+            background: #fff; /* 白色背景 */
+            color: #000; /* 黑色文字 */
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        input, select {
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 300px;
+        }
+
+        input[readonly] {
+            background: #eee; /* 只读输入框浅灰背景区分可编辑框 */
+        }
+
+        .copy-tip {
+            color: #007bff;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+
+        .copy-tip:hover {
+            text-decoration: underline;
+        }
+
+        input[readonly] {
+            cursor: pointer; /* 鼠标变手型提示可点击 */
+        }
+
+        #routes-table {
+            border-collapse: collapse; /* 相当于 cellspacing="0" */
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        #routes-table th, #routes-table td {
+            border: 1px solid #000;   /* 相当于 border="1" */
+            padding: 5px;              /* 相当于 cellpadding="5" */
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<h2>GSF 快递计算器</h2>
+
+<label>
+    快递公司名：
+    <input id="company" value="Imperial Transcontinental Logistics" readonly style="width:350px"
+           onclick="copyToClipboard('company','tip-company')"/>
+    <span id="tip-company" class="copy-tip" onclick="copyToClipboard('company','tip-company')">点击即可复制</span>
+</label>
+
+<label>
+    起点：
+    <select id="start"></select>
+    <span id="tip-start" class="copy-tip" onclick="copyToClipboard('start','tip-start')">点击即可复制</span>
+</label>
+
+<label>
+    终点：
+    <select id="destination"></select>
+    <span id="tip-dest" class="copy-tip" onclick="copyToClipboard('destination','tip-dest')">点击即可复制</span>
+</label>
+
+<label>
+    保证金：<input type="text" id="price" value="0"/>
+</label>
+
+<label>
+    体积：
+    <input type="text" id="volume" value="0"/>
+    <span id="volume-warning" style="color:red; display:none; margin-left:10px;">超出单个订单体积上限（350,000m³）！</span>
+</label>
+
+<label>
+    运费：
+    <input id="cost" readonly onclick="copyToClipboard('cost','tip-cost')"/>
+    <span id="tip-cost" class="copy-tip" onclick="copyToClipboard('cost','tip-cost')">点击即可复制</span>
+</label>
+
+<label>
+    期满：<input value="1 week" readonly/>
+</label>
+
+<label>
+    预计完成时间：<input value="7 days" readonly/>
+</label>
+
+<label>
+    体积上限：<input value="350,000m3" readonly/>
+</label>
+
+<p>更新于2025/11/4，如果有需要添加的快递站点，联盟大群或游戏内邮件联系Paloma Gukuru</p>
+
+<h3>快递路线和费率信息</h3>
+<table id="routes-table">
+    <thead>
+    <tr>
+        <th>起点</th>
+        <th>终点</th>
+        <th>计费类型</th>
+        <th>每立方米费用</th>
+        <th>保证金百分比费用</th>
+        <th>最低运费</th>
+        <th>固定运费</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<script>
+    /***************** 地点映射 *****************/
+    const stationMap = {
+        "Jita": "Jita IV - Moon 4 - Caldari Navy Assembly Plant",
+        "C-J6MT": "C-J6MT - 1st Taj Mahgoon",
+        "UALX-3": "UALX-3 - Mothership Bellicose",
+        "Amarr": "Amarr VIII (Oris) - Emperor Family Academy"
+    };
+
+    /***************** costManager *****************/
+    class CostManager {
+        constructor() {
+            this.routes = {};
+        }
+
+        start(start) {
+            this.currentStart = start;
+            if (!this.routes[start]) this.routes[start] = {};
+            return this;
+        }
+
+        dest(dest) {
+            this.currentDest = dest;
+            if (!this.routes[this.currentStart][dest]) this.routes[this.currentStart][dest] = {};
+            return this;
+        }
+
+        setPerM3Rate(rate) {
+            this.routes[this.currentStart][this.currentDest].type = 'variable';
+            this.routes[this.currentStart][this.currentDest].perM3Rate = rate;
+            return this;
+        }
+
+        setPercentRate(percent) {
+            this.routes[this.currentStart][this.currentDest].percentRate = percent;
+            return this;
+        }
+
+        setMinCost(minCost) {
+            this.routes[this.currentStart][this.currentDest].minCost = minCost;
+            return this;
+        }
+
+        setFixedCost(fixedCost) {
+            this.routes[this.currentStart][this.currentDest].type = '固定';
+            this.routes[this.currentStart][this.currentDest].fixedCost = fixedCost;
+            return this;
+        }
+
+        hasRoute(start, dest) {
+            return !!this.routes[start]?.[dest];
+        }
+
+        calculate(start, dest, volume = 0, estimatedPrice = 0) {
+            const route = this.routes[start]?.[dest];
+            if (!route) return null;
+            if (route.type === 'fixed') return route.fixedCost;
+            else if (route.type === 'variable') {
+                const percentRate = route.percentRate ?? 0.005;
+                let costByVolume = (route.perM3Rate ?? 0) * volume;
+                let costByPercent = estimatedPrice * percentRate;
+                let cost = Math.max(costByVolume, costByPercent);
+                if (route.minCost) cost = Math.max(cost, route.minCost);
+                return cost;
+            }
+            return null;
+        }
+    }
+
+    /***************** 初始化 costManager *****************/
+    const costManager = new CostManager();
+
+    costManager
+        .start("Jita").dest("C-J6MT").setPerM3Rate(1200).setPercentRate(0).setMinCost(5000000)
+        .start("Jita").dest("UALX-3").setPerM3Rate(1100).setPercentRate(0).setMinCost(5000000)
+        .start("C-J6MT").dest("Jita").setPerM3Rate(1200).setPercentRate(0.005).setMinCost(5000000)
+        .start("C-J6MT").dest("UALX-3").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000)
+        .start("C-J6MT").dest("Amarr").setPerM3Rate(850).setPercentRate(0.005).setMinCost(5000000)
+        .start("UALX-3").dest("Jita").setPerM3Rate(1100).setPercentRate(0.005).setMinCost(5000000)
+        .start("UALX-3").dest("C-J6MT").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000);
+
+
+    // 固定费用示例
+    // costManager.start("RF").dest("H-E").setFixedCost(2000000);
+
+    /***************** 初始化下拉框 *****************/
+    const startSelect = document.getElementById("start");
+    const destSelect = document.getElementById("destination");
+
+    // 填充起点下拉框
+    for (const code in stationMap) {
+        startSelect.innerHTML += `<option value="${code}">${stationMap[code]}</option>`;
+    }
+
+    /***************** 更新终点下拉框 *****************/
+    function updateDestOptions() {
+        const start = startSelect.value;
+        destSelect.innerHTML = "";
+        for (const destCode in stationMap) {
+            if (costManager.hasRoute(start, destCode)) {
+                const option = document.createElement("option");
+                option.value = destCode;
+                option.textContent = stationMap[destCode];
+                destSelect.appendChild(option);
+            }
+        }
+    }
+
+    /***************** 运费计算 *****************/
+    const VOLUME_MAX = 350000;
+    const priceInput = document.getElementById("price");
+    const volumeInput = document.getElementById("volume");
+    const costInput = document.getElementById("cost");
+    const volumeWarning = document.getElementById("volume-warning");
+
+    function removeLastChar(str) {
+        return str?.toString().slice(0, -1) || "";
+    }
+
+    function calculate() {
+        const start = startSelect.value;
+        const dest = destSelect.value;
+
+        // 去掉逗号再转数字
+        let volume = parseFloat(volumeInput.value.replace(/,/g, '')) || 0;
+        let estimatedPrice = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+
+        // 体积校验
+        if (volume > VOLUME_MAX) {
+            volumeWarning.style.display = "inline"; // 显示红字
+        } else {
+            volumeWarning.style.display = "none"; // 隐藏红字
+        }
+
+        // 计算
+        const cost = costManager.calculate(start,dest,volume,estimatedPrice);
+        costInput.value = cost?.toLocaleString() || "N/A";
+    }
+
+    /***************** 事件绑定 *****************/
+    startSelect.addEventListener("change", () => {
+        updateDestOptions();
+        calculate();
+    });
+    destSelect.addEventListener("change", calculate);
+    volumeInput.addEventListener("input", () => {
+        formatNumberInput(volumeInput);
+        calculate();
+    });
+    priceInput.addEventListener("input", () => {
+        formatNumberInput(priceInput);
+        calculate();
+    });
+
+    function renderRoutesTable() {
+        const tbody = document.querySelector("#routes-table tbody");
+        tbody.innerHTML = ""; // 清空旧内容
+
+        for (const start in costManager.routes) {
+            for (const dest in costManager.routes[start]) {
+                const route = costManager.routes[start][dest];
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                <td>${stationMap[start] || start}</td>
+                <td>${stationMap[dest] || dest}</td>
+                <td>${route.type}</td>
+                <td>${route.perM3Rate?.toLocaleString() || '-'}</td>
+                <td>${route.percentRate ? (route.percentRate*100).toFixed(2)+'%' : '-'}</td>
+                <td>${route.minCost?.toLocaleString() || '-'}</td>
+                <td>${route.fixedCost?.toLocaleString() || '-'}</td>
+            `;
+                tbody.appendChild(tr);
+            }
+        }
+    }
+
+    /***************** 页面初始化 *****************/
+    window.onload = function () {
+        updateDestOptions(); // 初始化终点下拉框
+        calculate();         // 默认计算
+        renderRoutesTable(); // 渲染路线表格
+    };
+
+    function formatNumberInput(input) {
+        let value = input.value;
+        // 去掉非数字字符（保留整数）
+        value = value.replace(/\D/g,'');
+        // 去掉前导零
+        value = value.replace(/^0+/, '') || '0';
+        // 加千位分隔符
+        input.value = Number(value).toLocaleString('en-US') || "N/A";
+    }
+
+    function copyToClipboard(elementId, tipId) {
+        const el = document.getElementById(elementId);
+        const tip = document.getElementById(tipId);
+        let value;
+        if (el.tagName === "SELECT") {
+            value = el.options[el.selectedIndex].text; // 下拉框复制选中项文字
+        } else {
+            value = el.value;
+        }
+
+        navigator.clipboard.writeText(value).then(() => {
+            const originalText = tip.textContent;
+            tip.textContent = "已复制";
+            setTimeout(() => {
+                tip.textContent = originalText;
+            }, 2000); // 2秒后恢复原文字
+        }).catch(err => {
+            console.error("复制失败", err);
+        });
+    }
+
+</script>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<p style="color: white;">改自很久以前我给FRT写的快递计算器（零个人在意）</p>
+
+</body>
+</html>

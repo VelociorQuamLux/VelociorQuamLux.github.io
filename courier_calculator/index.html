@@ -280,6 +280,14 @@
         calculate();
     });
 
+    priceInput.addEventListener("focus", () => {
+        priceInput.select();
+    });
+
+    volumeInput.addEventListener("focus", () => {
+        volumeInput.select();
+    });
+
     function renderRoutesTable() {
         const tbody = document.querySelector("#routes-table tbody");
         tbody.innerHTML = ""; // 清空旧内容

@@ -5,11 +5,11 @@
     <title>GSF快递计算器</title>
     <style>
         body {
-            font-family: "SimSun", "Times New Roman", serif; /* 中文宋体，英文 Times New Roman */
+            font-family: "SimSun", "Times New Roman", serif;
             line-height: 1.5;
             padding: 20px;
-            background: #fff; /* 白色背景 */
-            color: #000; /* 黑色文字 */
+            background: #fff;
+            color: #000;
         }
 
         label {
@@ -27,7 +27,8 @@
         }
 
         input[readonly] {
-            background: #eee; /* 只读输入框浅灰背景区分可编辑框 */
+            background: #eee;
+            cursor: pointer;
         }
 
         .copy-tip {
@@ -41,20 +42,20 @@
             text-decoration: underline;
         }
 
-        input[readonly] {
-            cursor: pointer; /* 鼠标变手型提示可点击 */
-        }
-
         #routes-table {
-            border-collapse: collapse; /* 相当于 cellspacing="0" */
+            border-collapse: collapse;
             width: 100%;
             margin-top: 20px;
         }
 
         #routes-table th, #routes-table td {
-            border: 1px solid #000;   /* 相当于 border="1" */
-            padding: 5px;              /* 相当于 cellpadding="5" */
+            border: 1px solid #000;
+            padding: 5px;
             text-align: center;
+        }
+
+        #recommend-container {
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -92,9 +93,15 @@
 </label>
 
 <label>
-    运费：
+    最低运费：
     <input id="cost" readonly onclick="copyToClipboard('cost','tip-cost')"/> isk
     <span id="tip-cost" class="copy-tip" onclick="copyToClipboard('cost','tip-cost')">点击即可复制</span>
+</label>
+
+<label id="recommend-container" style="display:none;">
+    建议运费：
+    <input id="recommend-fee" readonly onclick="copyToClipboard('recommend-fee','tip-recommend')"/> isk
+    <span id="tip-recommend" class="copy-tip" onclick="copyToClipboard('recommend-fee','tip-recommend')">点击即可复制</span>
 </label>
 
 <label>
@@ -122,10 +129,12 @@
         <th>保证金百分比费用</th>
         <th>最低运费</th>
         <th>固定运费</th>
+        <th>建议百分比</th>
     </tr>
     </thead>
     <tbody></tbody>
 </table>
+
 <script>
     /***************** 地点映射 *****************/
     const stationMap = {
@@ -164,13 +173,18 @@
             return this;
         }
 
+        setRecommendPercentRate(rate) {
+            this.routes[this.currentStart][this.currentDest].recommendPercentRate = rate;
+            return this;
+        }
+
         setMinCost(minCost) {
             this.routes[this.currentStart][this.currentDest].minCost = minCost;
             return this;
         }
 
         setFixedCost(fixedCost) {
-            this.routes[this.currentStart][this.currentDest].type = '固定';
+            this.routes[this.currentStart][this.currentDest].type = 'fixed';
             this.routes[this.currentStart][this.currentDest].fixedCost = fixedCost;
             return this;
         }
@@ -182,13 +196,17 @@
         calculate(start, dest, volume = 0, estimatedPrice = 0) {
             const route = this.routes[start]?.[dest];
             if (!route) return null;
+
             if (route.type === 'fixed') return route.fixedCost;
-            else if (route.type === 'variable') {
+
+            if (route.type === 'variable') {
                 const percentRate = route.percentRate ?? 0.005;
                 let costByVolume = (route.perM3Rate ?? 0) * volume;
                 let costByPercent = estimatedPrice * percentRate;
                 let cost = Math.max(costByVolume, costByPercent);
+
                 if (route.minCost) cost = Math.max(cost, route.minCost);
+
                 return cost;
             }
             return null;
@@ -199,23 +217,18 @@
     const costManager = new CostManager();
 
     costManager
-        .start("Jita").dest("C-J6MT").setPerM3Rate(1200).setPercentRate(0).setMinCost(5000000)
-        .start("Jita").dest("UALX-3").setPerM3Rate(1100).setPercentRate(0).setMinCost(5000000)
-        .start("C-J6MT").dest("Jita").setPerM3Rate(1200).setPercentRate(0.005).setMinCost(5000000)
-        .start("C-J6MT").dest("UALX-3").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000)
-        .start("C-J6MT").dest("Amarr").setPerM3Rate(850).setPercentRate(0.005).setMinCost(5000000)
-        .start("UALX-3").dest("Jita").setPerM3Rate(1100).setPercentRate(0.005).setMinCost(5000000)
-        .start("UALX-3").dest("C-J6MT").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000);
-
-
-    // 固定费用示例
-    // costManager.start("RF").dest("H-E").setFixedCost(2000000);
+        .start("Jita").dest("C-J6MT").setPerM3Rate(1200).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
+        .start("Jita").dest("UALX-3").setPerM3Rate(1100).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
+        .start("C-J6MT").dest("Jita").setPerM3Rate(1200).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
+        .start("C-J6MT").dest("UALX-3").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
+        .start("C-J6MT").dest("Amarr").setPerM3Rate(850).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
+        .start("UALX-3").dest("Jita").setPerM3Rate(1100).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
+        .start("UALX-3").dest("C-J6MT").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008);
 
     /***************** 初始化下拉框 *****************/
     const startSelect = document.getElementById("start");
     const destSelect = document.getElementById("destination");
 
-    // 填充起点下拉框
     for (const code in stationMap) {
         startSelect.innerHTML += `<option value="${code}">${stationMap[code]}</option>`;
     }
@@ -240,29 +253,39 @@
     const volumeInput = document.getElementById("volume");
     const costInput = document.getElementById("cost");
     const volumeWarning = document.getElementById("volume-warning");
-
-    function removeLastChar(str) {
-        return str?.toString().slice(0, -1) || "";
-    }
+    const recommendContainer = document.getElementById("recommend-container");
+    const recommendFeeInput = document.getElementById("recommend-fee");
 
     function calculate() {
         const start = startSelect.value;
         const dest = destSelect.value;
 
-        // 去掉逗号再转数字
         let volume = parseFloat(volumeInput.value.replace(/,/g, '')) || 0;
         let estimatedPrice = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
 
-        // 体积校验
         if (volume > VOLUME_MAX) {
-            volumeWarning.style.display = "inline"; // 显示红字
+            volumeWarning.style.display = "inline";
         } else {
-            volumeWarning.style.display = "none"; // 隐藏红字
+            volumeWarning.style.display = "none";
         }
 
-        // 计算
-        const cost = costManager.calculate(start,dest,volume,estimatedPrice);
+        const route = costManager.routes[start]?.[dest];
+        const cost = costManager.calculate(start, dest, volume, estimatedPrice);
         costInput.value = cost?.toLocaleString() || "N/A";
+
+        // 建议运费逻辑
+        if (route?.recommendPercentRate) {
+            const recommendFee = estimatedPrice * route.recommendPercentRate;
+
+            if (recommendFee > cost) {
+                recommendContainer.style.display = "block";
+                recommendFeeInput.value = recommendFee.toLocaleString();
+            } else {
+                recommendContainer.style.display = "none";
+            }
+        } else {
+            recommendContainer.style.display = "none";
+        }
     }
 
     /***************** 事件绑定 *****************/
@@ -271,6 +294,7 @@
         calculate();
     });
     destSelect.addEventListener("change", calculate);
+
     volumeInput.addEventListener("input", () => {
         formatNumberInput(volumeInput);
         calculate();
@@ -280,17 +304,13 @@
         calculate();
     });
 
-    priceInput.addEventListener("focus", () => {
-        priceInput.select();
-    });
+    priceInput.addEventListener("focus", () => priceInput.select());
+    volumeInput.addEventListener("focus", () => volumeInput.select());
 
-    volumeInput.addEventListener("focus", () => {
-        volumeInput.select();
-    });
-
+    /***************** 渲染路线表格 *****************/
     function renderRoutesTable() {
         const tbody = document.querySelector("#routes-table tbody");
-        tbody.innerHTML = ""; // 清空旧内容
+        tbody.innerHTML = "";
 
         for (const start in costManager.routes) {
             for (const dest in costManager.routes[start]) {
@@ -304,56 +324,54 @@
                 <td>${route.percentRate ? (route.percentRate*100).toFixed(2)+'%' : '-'}</td>
                 <td>${route.minCost?.toLocaleString() || '-'}</td>
                 <td>${route.fixedCost?.toLocaleString() || '-'}</td>
+                <td>${route.recommendPercentRate ? (route.recommendPercentRate*100).toFixed(2)+'%' : '-'}</td>
             `;
                 tbody.appendChild(tr);
             }
         }
     }
 
-    /***************** 页面初始化 *****************/
-    window.onload = function () {
-        updateDestOptions(); // 初始化终点下拉框
-        calculate();         // 默认计算
-        renderRoutesTable(); // 渲染路线表格
-    };
-
+    /***************** 数字格式化 *****************/
     function formatNumberInput(input) {
         let value = input.value;
-        // 去掉非数字字符（保留整数）
         value = value.replace(/\D/g,'');
-        // 去掉前导零
         value = value.replace(/^0+/, '') || '0';
-        // 加千位分隔符
         input.value = Number(value).toLocaleString('en-US') || "N/A";
     }
 
+    /***************** 复制功能 *****************/
     function copyToClipboard(elementId, tipId) {
         const el = document.getElementById(elementId);
         const tip = document.getElementById(tipId);
         let value;
-        if (el.tagName === "SELECT") {
-            value = el.options[el.selectedIndex].text; // 下拉框复制选中项文字
-        } else {
-            value = el.value;
-        }
+
+        if (el.tagName === "SELECT") value = el.options[el.selectedIndex].text;
+        else value = el.value;
 
         navigator.clipboard.writeText(value).then(() => {
             const originalText = tip.textContent;
             tip.textContent = "已复制";
             setTimeout(() => {
                 tip.textContent = originalText;
-            }, 2000); // 2秒后恢复原文字
-        }).catch(err => {
-            console.error("复制失败", err);
+            }, 2000);
         });
     }
 
+    /***************** 初始化 *****************/
+    window.onload = function () {
+        updateDestOptions();
+        calculate();
+        renderRoutesTable();
+    };
+
 </script>
+
+<br/>
+<br/>
 <br/>
 <br/>
 <br/>
 <br/>
 <p style="color: white;">改自很久以前我给FRT写的快递计算器（零个人在意），所以没有侵权问题</p>
-
 </body>
 </html>

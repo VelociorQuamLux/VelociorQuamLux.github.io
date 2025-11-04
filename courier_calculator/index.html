@@ -205,7 +205,12 @@
                 let costByPercent = estimatedPrice * percentRate;
                 let cost = Math.max(costByVolume, costByPercent);
 
-                if (route.minCost) cost = Math.max(cost, route.minCost);
+                if (route.minCost) {
+                    let maxCostByVolume = (route.perM3Rate ?? 0) * VOLUME_MAX - route.minCost;
+
+                    cost = Math.min(cost, maxCostByVolume);
+                    cost = Math.max(cost, route.minCost);
+                }
 
                 return cost;
             }

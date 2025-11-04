@@ -222,13 +222,13 @@
     const costManager = new CostManager();
 
     costManager
-        .start("Jita").dest("C-J6MT").setPerM3Rate(1200).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
-        .start("Jita").dest("UALX-3").setPerM3Rate(1100).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
-        .start("C-J6MT").dest("Jita").setPerM3Rate(1200).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
-        .start("C-J6MT").dest("UALX-3").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008)
-        .start("C-J6MT").dest("Amarr").setPerM3Rate(850).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
-        .start("UALX-3").dest("Jita").setPerM3Rate(1100).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.01)
-        .start("UALX-3").dest("C-J6MT").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.008);
+        .start("Jita").dest("C-J6MT").setPerM3Rate(1200).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("Jita").dest("UALX-3").setPerM3Rate(1100).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("C-J6MT").dest("Jita").setPerM3Rate(1200).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("C-J6MT").dest("UALX-3").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("C-J6MT").dest("Amarr").setPerM3Rate(850).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("UALX-3").dest("Jita").setPerM3Rate(1100).setPercentRate(0.005).setMinCost(5000000).setRecommendPercentRate(0.005)
+        .start("UALX-3").dest("C-J6MT").setPerM3Rate(650).setPercentRate(0).setMinCost(5000000).setRecommendPercentRate(0.005);
 
     /***************** 初始化下拉框 *****************/
     const startSelect = document.getElementById("start");

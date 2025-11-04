@@ -64,22 +64,15 @@
 <h2>GSF 快递计算器</h2>
 
 <label>
+    合同类型：
+    <input value="快递合同" readonly style="width:350px"/>
+</label>
+
+<label>
     快递公司名：
     <input id="company" value="Imperial Transcontinental Logistics" readonly style="width:350px"
            onclick="copyToClipboard('company','tip-company')"/>
     <span id="tip-company" class="copy-tip" onclick="copyToClipboard('company','tip-company')">点击即可复制</span>
-</label>
-
-<label>
-    起点：
-    <select id="start"></select>
-    <span id="tip-start" class="copy-tip" onclick="copyToClipboard('start','tip-start')">点击即可复制</span>
-</label>
-
-<label>
-    终点：
-    <select id="destination"></select>
-    <span id="tip-dest" class="copy-tip" onclick="copyToClipboard('destination','tip-dest')">点击即可复制</span>
 </label>
 
 <label>
@@ -89,7 +82,19 @@
 </label>
 
 <label>
+    起点：
+    <select id="start"></select>
+</label>
+
+<label>
+    终点：
+    <select id="destination"></select>
+    <span id="tip-dest" class="copy-tip" onclick="copyToClipboard('destination','tip-dest')">点击即可复制</span>
+</label>
+
+<label>
     保证金：<input type="text" id="price" value="0"/> isk
+    <span id="tip-price" class="copy-tip" onclick="copyToClipboard('price','tip-price')">点击即可复制</span>
 </label>
 
 <label>
